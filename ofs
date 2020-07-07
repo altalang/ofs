@@ -1,0 +1,195 @@
+#!/bin/bash
+
+set -u
+
+# ====================================================================
+# Example configuration:
+# ====================================================================
+# --------------------------------------------------------------------
+# secret.yml:
+# --------------------------------------------------------------------
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: ofs-secret
+#   namespace: default
+# type: altalang/ofs
+# data:
+#   license: 'WW91ciBPYmplY3RpdmVGUyBsaWNlbnNl'
+#   passphrase: 'cGFzc3BocmFzZQ=='
+#   accesskey: 'QVdTIEFjY2VzcyBLZXkgSUQ='
+#   secretkey: 'QVdTIFNlY3JldCBBY2Nlc3MgS2V5'
+#
+# --------------------------------------------------------------------
+# pod.yml:
+# --------------------------------------------------------------------
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: busybox
+#   namespace: default
+# spec:
+#   containers:
+#   - name: busybox
+#     image: busybox
+#     command:
+#       - sleep
+#       - "3600"
+#     imagePullPolicy: IfNotPresent
+#     volumeMounts:
+#     - name: test
+#       mountPath: /data
+#   volumes:
+#   - name: test
+#     flexVolume:
+#       driver: "altalang/ofs"
+#       secretRef:
+#         name: "ofs-secret"
+#       options:
+#         bucketPath: "s3://my-bucket"
+#         mountOptions: "mt"
+# --------------------------------------------------------------------
+
+# Uncomment the following lines to see how this plugin is called:
+# echo >> /tmp/ofs.log
+# date >> /tmp/ofs.log
+# echo "$@" >> /tmp/ofs.log
+
+init() {
+	assertBinaryInstalled mount.objectivefs objectivefs
+	assertBinaryInstalled jq jq
+	assertBinaryInstalled mountpoint util-linux
+	assertBinaryInstalled base64 coreutils
+	echo '{ "status": "Success", "message": "The altalang/ofs flexvolume plugin was initialized successfully", "capabilities": { "attach": false } }'
+	exit 0
+}
+
+assertBinaryInstalled() {
+	binary="$1"
+	package="$2"
+	if ! which "$binary" > /dev/null ; then
+		errorExit "Failed to initialize the altalang/ofs flexvolume plugin. $binary command not found. Please install the $package package."
+	fi
+}
+
+errorExit() {
+	if [[ $# -ne 1 ]] ; then
+		echo '{ "status": "Failure", "message": "Unknown error in the altalang/ofs flexvolume plugin." }'
+	else
+		jq -Mcn --arg message "$1" '{ "status": "Failure", "message": $message }'
+	fi
+	exit 1
+}
+
+doMount() {
+	if [[ -z ${1:-} || -z ${2:-} ]] ; then
+		errorExit "ofs mount: syntax error. usage: ofs mount <mount dir> <json options>"
+	fi
+	mountPoint="$1"
+	shift
+	json=$(printf '%s ' "${@}")
+	if ! jq -e . > /dev/null 2>&1 <<< "$json" ; then
+		errorExit "ofs mount: syntax error. invalid json: '$json'"
+	fi
+	bucketPath="$(jq --raw-output -e '.bucketPath' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: option bucketPath missing in flexvolume configuration."
+	fi
+	mountOptions="$(jq --raw-output -e '.mountOptions' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: option mountOptions missing in flexvolume configuration."
+	fi
+	ofsLicenseBase64="$(jq --raw-output -e '.["kubernetes.io/secret/license"]' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: license not found. The flexVolume definition must contain a secretRef to a secret with an OFS license."
+	fi
+	ofsPassphraseBase64="$(jq --raw-output -e '.["kubernetes.io/secret/passphrase"]' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: passphrase not found. the flexVolume definition must contain a secretRef to a secret with an OFS passphrase."
+	fi
+	awsAccessKeyBase64="$(jq --raw-output -e '.["kubernetes.io/secret/accesskey"]' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: access key not found. The flexVolume definition must contain a secretRef to a secret with an AWS access key id."
+	fi
+	awsSecretKeyBase64="$(jq --raw-output -e '.["kubernetes.io/secret/secretkey"]' <<< "$json" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: passphrase not found. the flexVolume definition must contain a secretRef to a secret with an AWS secret key."
+	fi
+	ofsLicense="$(base64 --decode <<< "$ofsLicenseBase64" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: license secret is not base64 encoded."
+	fi
+	ofsPassphrase="$(base64 --decode <<< "$ofsPassphraseBase64" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: passphrase secret is not base64 encoded."
+	fi
+	awsAccess="$(base64 --decode <<< "$awsAccessKeyBase64" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: accesskey secret is not base64 encoded."
+	fi
+	awsSecret="$(base64 --decode <<< "$awsSecretKeyBase64" 2>/dev/null)"
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: secretkey secret is not base64 encoded."
+	fi
+	if ! mkdir -p "$mountPoint" > /dev/null 2>&1 ; then
+		errorExit "ofs mount: failed to create mount directory: '$mountPoint'"
+	fi
+	if [[ $(mountpoint "$mountPoint") = *"is a mountpoint"* ]] ; then
+		errorExit "ofs mount: there is already a filesystem mounted under the mount directory: '$mountPoint'"
+	fi
+	if [[ ! -z $(ls -A "$mountPoint" 2>/dev/null) ]] ; then
+		errorExit "ofs mount: mount directory is not an empty directory: '$mountPoint'"
+	fi
+
+	export AWS_ACCESS_KEY_ID="$awsAccess"
+	export AWS_SECRET_ACCESS_KEY="$awsSecret"
+	export OBJECTIVEFS_LICENSE="$ofsLicense"
+	export OBJECTIVEFS_PASSPHRASE="$ofsPassphrase"
+	result=$(mount.objectivefs "$bucketPath" "$mountPoint" -o "$mountOptions" 2>&1)
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs mount: failed to mount the bucket: $result"
+	fi
+	echo '{ "status": "Success" }'
+	exit 0
+}
+
+doUnmount() {
+	if [[ -z ${1:-} ]] ; then
+		errorExit "ofs unmount: syntax error. usage: ofs unmount <mount dir>"
+	fi
+	mountPoint="$1"
+	if [[ $(mountpoint "$mountPoint") != *"is a mountpoint"* ]] ; then
+		errorExit "ofs unmount: no filesystem mounted under directory: '$mountPoint'"
+	fi
+	result=$(umount "$mountPoint" 2>&1)
+	if [[ $? -ne 0 ]] ; then
+		errorExit "ofs unmount: failed to unmount the bucket: $result"
+	fi
+	echo '{ "status": "Success" }'
+	exit 0
+}
+
+not_supported() {
+	echo '{ "status": "Not supported" }'
+	exit 1
+}
+
+command=${1:-}
+if [[ -n $command ]]; then
+	shift
+fi
+
+case "$command" in
+	init)
+		init "$@"
+		;;
+	mount)
+		doMount "$@"
+		;;
+	unmount)
+		doUnmount "$@"
+		;;
+	*)
+		not_supported "$@"
+		;;
+esac
