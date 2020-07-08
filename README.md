@@ -28,9 +28,9 @@ The `ofs` script requires a few executables to be available on each host system:
 
 If your Kubernetes cluster is managed through `kops`, you will need to configure your [cluster specification](https://github.com/kubernetes/kops/blob/master/docs/cluster_spec.md) with a [hook](https://github.com/kubernetes/kops/blob/master/docs/cluster_spec.md#hooks) to install the flexvolume driver and all appropriate packages on all nodes that it creates.
 
-First, you will need your download path for your ObjectiveFS pacakge. This can be found on the [ObjectiveFS download page](https://objectivefs.com/install).
+First, you will need your download URL for your ObjectiveFS pacakge. This can be found on the [ObjectiveFS download page](https://objectivefs.com/install).
 
-Edit your cluster configuration with `kops edit cluster <cluster-name>` and add an appropriate hook to install the necessary packages and flexvolume driver. Here is an example for a cluster based on Ubuntu (be sure to change the plugin paths as needed, described above) using ObjectiveFS 6.7.2 (be sure to change the download link to your own download link):
+Edit your cluster configuration with `kops edit cluster <cluster-name>` and add an appropriate hook to install the necessary packages and flexvolume driver. Here is an example for a cluster based on Ubuntu (be sure to change the plugin paths as needed, described above) using ObjectiveFS 6.7.2 (be sure to change the download URL to your own download URL):
 
 ```yaml
 spec:
@@ -65,7 +65,7 @@ curl -L -O https://raw.githubusercontent.com/altalang/ofs/master/ofs
 chmod 755 ofs
 ```
 
-You will also need to ensure all the additional dependencies are installed as described above, including `mount.objectivefs`, `jq`, `mountpoint`, and `base64`.
+You will also need to ensure all the additional dependencies are installed as described above, including `mount.objectivefs`, `fuse`, `jq`, `mountpoint`, and `base64`.
 
 To check if the installation was successful, run the following command:
 
