@@ -19,10 +19,10 @@ The flexvolume plugin is a single shell script named [ofs](https://github.com/al
 
 The `ofs` script requires a few executables to be available on each host system:
 
-* `mount.objectivefs`, provided by the ObjectiveFS package. You can find the appropriate package for your system on the [ObjectiveFS download page](https://objectivefs.com/install).
-* `jq`, on Ubuntu this is in the [jq](https://packages.ubuntu.com/bionic/jq) package.
-* `mountpoint`, on Ubuntu this is in the [util-linux](https://packages.ubuntu.com/bionic/util-linux) package.
-* `base64`, on Ubuntu this is in the [coreutils](https://packages.ubuntu.com/bionic/coreutils) package.
+* `mount.objectivefs`, provided by the ObjectiveFS package. You can find the appropriate package for your system on the [ObjectiveFS download page](https://objectivefs.com/install). On Ubuntu, this depends on the `fuse` [package](https://packages.ubuntu.com/focal/fuse).
+* `jq`, on Ubuntu this is in the [jq](https://packages.ubuntu.com/focal/jq) package.
+* `mountpoint`, on Ubuntu this is in the [util-linux](https://packages.ubuntu.com/focal/util-linux) package.
+* `base64`, on Ubuntu this is in the [coreutils](https://packages.ubuntu.com/focal/coreutils) package.
 
 ### **Installing in a cluster with `kops`**
 
