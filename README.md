@@ -30,7 +30,7 @@ If your Kubernetes cluster is managed through `kops`, you will need to configure
 
 First, you will need your download path for your ObjectiveFS pacakge. This can be found on the [ObjectiveFS download page](https://objectivefs.com/install).
 
-Edit your cluster configuration with `kops edit cluster <cluster-name>` and add an appropriate hook to install the necessary packages and flexvolume driver. Here is an example for a cluster based on Ubuntu (be sure to change the plugin paths as needed, described above) using ObjectiveFS 6.7.2:
+Edit your cluster configuration with `kops edit cluster <cluster-name>` and add an appropriate hook to install the necessary packages and flexvolume driver. Here is an example for a cluster based on Ubuntu (be sure to change the plugin paths as needed, described above) using ObjectiveFS 6.7.2 (be sure to change the download link to your own download link):
 
 ```yaml
 spec:
