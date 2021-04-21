@@ -79,7 +79,7 @@ It should output a JSON string containing `"status": "Success"`. This command is
 Running
 -------
 
-The plugin takes your AWS Access Key ID, AWS Secret Access Key, ObjectiveFS License, and ObjectiveFS Passphrase from a [Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/). To create the secret, you first have to convert each of theve values to base64 encoding:
+The plugin takes your AWS Access Key ID, AWS Secret Access Key, ObjectiveFS License, and ObjectiveFS Passphrase from a [Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/). To create the secret, you first have to convert each of these values to base64 encoding:
 
 ```bash
 echo -n <AWS access key id> | base64
