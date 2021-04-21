@@ -133,7 +133,7 @@ spec:
   volumes:
   - name: test
     flexVolume:
-      driver: "altlang/ofs"
+      driver: "altalang/ofs"
       secretRef:
         name: "ofs-secret"
       options:
